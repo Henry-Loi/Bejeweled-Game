@@ -90,7 +90,7 @@ initializeGrid:
 	initrowLoop: 
 		li $t0, 8
 		li $s1, 0 # colIndex
-		beq $s0, $t0, exitNestLoop # if rowIndex is 8, end loop
+		beq $s0, $t0, exitInitNestLoop # if rowIndex is 8, end loop
 			
 		initcolLoop:
 			li $t0, 8
@@ -129,7 +129,7 @@ initializeGrid:
 	endinitcolLoop:
             addi $s0, $s0, 1
             j initrowLoop
-exitNestLoop:
+exitInitNestLoop:
 
 	#------ Your code ends here ------
 
@@ -517,8 +517,107 @@ checkVerticalMatch:
 	#		 then set the vscore attribute of all tiles in this matched pattern to the length of the matched pattern.
 	# step 6: If a tile has its vscore attribute already been set (not equal to 0), then skip updating it. 
 	#------ Your code starts here ------
+    addi $sp, $sp, -36
+    sw $ra, 32($sp)
+    sw $s0, 28($sp)
+    sw $s1, 24($sp)
+    sw $s2, 20($sp)
+    sw $s3, 16($sp)
+    sw $s4, 12($sp)
+    sw $s5, 8($sp)
+    sw $s6, 4($sp)
+    sw $s7, 0($sp)
+
+    li $s0, 0 # colIndex
+
+    colLoopMatchVertical:
+        li $t0, 8
+        beq $s0, $t0, endCheckVerticalMatch
+
+        li $s1, 0 # rowIndex
+
+        rowLoopMatchVertical:
+            li $t0, 8
+            beq $s1, $t0, endRowLoopMatchVertical
+
+            add $a0, $s0, $zero
+            add $a1, $s1, $zero
+            jal getCellAddress
+            add $s2, $v0, $zero # address of current tile
+
+            lw $t0, 28($s2) # grid[i][j].vscore
+            bne $t0, $zero, rowLoopMatchVerticalContinue
+
+            add $s3, $s1, $zero # upborder of matched pattern
+            add $s4, $s1, $zero # downborder of matched pattern
+            lw $s5, 16($s2) # grid[i][j].kind
+
+            expandUpBorder:
+                bltz $s3, expandDownBorder
+                add $a0, $s0, $zero
+                add $a1, $s3, $zero	
+                jal getCellAddress
+                add $t0, $v0, $zero # address of up border tile
+                lw $t1, 16($t0) # grid[i][upborder].kind
+                bne $t1, $s5, expandDownBorder
+
+                addi $s3, $s3, -1
+                j expandUpBorder
+
+            expandDownBorder:
+                add $t0, $s4, $zero
+                addi $t0, $t0, -8
+                bgez $t0, endExpandDownBorder
+                add $a0, $s0, $zero
+                add $a1, $s4, $zero
+                jal getCellAddress
+                add $t0, $v0, $zero # address of down border tile
+                lw $t1, 16($t0) # grid[i][downborder].kind
+                bne $t1, $s5, endExpandDownBorder
+
+                addi $s4, $s4, 1
+                j expandDownBorder
+
+            endExpandDownBorder:
+                sub $s6, $s4, $s3 # patternLength
+                addi $s6, $s6, -1
+                addi $t0, $s6, -3
+                bltz $t0, rowLoopMatchVerticalContinue
+
+            addi $s7, $s3, 1
+            updateVScore:
+                sub $t0, $s7, $s4
+                bgez $t0, rowLoopMatchVerticalContinue
+
+                add $a0, $s0, $zero
+                add $a1, $s7, $zero
+                jal getCellAddress
+                add $t1, $v0, $zero # address of tile to be updated
+                sw $s6, 28($t1) #grid[i][].vscore
+
+                addi $s7, $s7, 1
+                j updateVScore
 
 
+        rowLoopMatchVerticalContinue:
+            addi $s1, $s1, 1
+            j rowLoopMatchVertical
+
+        endRowLoopMatchVertical:
+            addi $s0, $s0, 1
+            j colLoopMatchVertical
+        
+endCheckVerticalMatch:
+    lw $s7, 0($sp)
+    lw $s6, 4($sp)
+    lw $s5, 8($sp)
+    lw $s4, 12($sp)
+    lw $s3, 16($sp)
+    lw $s2, 20($sp)
+    lw $s1, 24($sp)
+    lw $s0, 28($sp)
+    lw $ra, 32($sp)
+    addi $sp, $sp, 36
 	#------ Your code ends here ------
     jr $ra
 
@@ -532,7 +631,7 @@ updateMatch:
 	#***** Task 3 *****
 	# Update the match attribute of each tile in the grid, and set the value of matchFound variable accordingly.
 	# Note that "matchFound" is a global variable indicating whether at least one matched pattern exists in the 
-    # current game loop. This variable is used in procedure "revertSwap".
+    	# current game loop. This variable is used in procedure "revertSwap".
 	#
 	# hint: 
 	# step 1: Assign the value of matchFound variable to 0(false).
@@ -540,8 +639,76 @@ updateMatch:
 	# step 3: For each tile, set its match attribute to the sum of its hscore and vscore attributes.
 	# step 4: If the match attribute of any tile is greater than 0, then set the value of matchFound variable to 1(true).
 	#------ Your code starts here ------
+	# $s0: rowIndex
+	# $s1: colIndex
+	# $s2: tile base adress
+	# $s3: tile hscore
+	# $s4: tile vscore
+	# $s5: matchFound adress
+	# $s6: matchFound value
+	
+	addi $sp, $sp, -36
+    	sw $ra, 32($sp)
+    	sw $s0, 28($sp)
+    	sw $s1, 24($sp)
+    	sw $s2, 20($sp)
+    	sw $s3, 16($sp)
+    	sw $s4, 12($sp)
+    	sw $s5, 8($sp)
+    	sw $s6, 4($sp)
+    	sw $s7, 0($sp)
 
+        # init matchFound to false 
+	li $s6, 0
+	sw $s6, matchFound
 
+	li $s0, 0 # rowIndex
+	matchrowLoop: 
+		li $t0, 8
+		li $s1, 0 # colIndex
+		beq $s0, $t0, exitMatchNestLoop # if rowIndex is 8, end loop
+			
+		matchcolLoop:
+			li $t0, 8
+			beq $s1, $t0, endmatchcolLoop
+			
+			add $a0, $s0, $zero
+			add $a1, $s1, $zero
+            		jal getCellAddress
+            		add $s2, $v0, $zero # address of current tile
+            		           		
+            		# attribute hscore
+            		lw $s3, 24($s2)
+            		
+			# attribute vscore
+			lw $s4, 28($s2)
+			
+			add $s4, $s4, $s3
+			li $s6, 1
+			bgtz $s4, SetmatchFound
+			
+			addi $s1, $s1, 1
+            		j matchcolLoop 
+				
+	endmatchcolLoop:
+            addi $s0, $s0, 1
+            j matchrowLoop
+            
+SetmatchFound:
+	# assign match value to matchFound adress 
+	sw $s6, matchFound
+
+exitMatchNestLoop:
+    	lw $s7, 0($sp)
+    	lw $s6, 4($sp)
+    	lw $s5, 8($sp)
+    	lw $s4, 12($sp)
+    	lw $s3, 16($sp)
+    	lw $s2, 20($sp)
+    	lw $s1, 24($sp)
+    	lw $s0, 28($sp)
+    	lw $ra, 32($sp)
+    	addi $sp, $sp, 36
 	#------ Your code ends here ------
     jr $ra
 
