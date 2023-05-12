@@ -898,15 +898,23 @@ moveMatch:
 
 	#***** Task 4 *****
 	# Push the registers that need to be preserved onto the stack here.
-
-
+	addi $sp, $sp, -36
+    	sw $ra, 32($sp)
+    	sw $s0, 28($sp)
+    	sw $s1, 24($sp)
+    	sw $s2, 20($sp)
+    	sw $s3, 16($sp)
+    	sw $s4, 12($sp)
+    	sw $s5, 8($sp)
+    	sw $s6, 4($sp)
+    	sw $s7, 0($sp)
 
     #******************
 
 	# The following 4 lines of code are for animations, and they are not part of the Task 4 logic.
     # You can ignore the following piece of code, but remember DO NOT modify it.
     # DO NOT modify the "endMoveMatch" label at the end of this procedure.
-	la $t0, isMoving
+    la $t0, isMoving
     lw $t0, 0($t0)
     li $t1, 1
     beq $t0, $t1, endMoveMatch
@@ -929,7 +937,61 @@ moveMatch:
     # unmatched tile above it identified in step 3.
     #   - Read the source codes of "swapTiles" to understand how to use it.
 	#------ Your code starts here ------
+	
+	li $s0, 7 # colIndex
+	lw $s3, tileSize
+	moveMatchcolLoop: 
+		li $t0, -1
+		li $s1, 0 # rowIndex
+		beq $s0, $t0, exitmoveMatchNestLoop # if rowIndex is 8, end loop
+		li $s4, -1 # init the bottom-most unmateched tile
+		li $s5, -1 # init the matched tile
+			
+		moveMatchrowLoop:
+			li $t0, 8
+			beq $s1, $t0, endmoveMatchrowLoop
+			
+			add $a0, $s0, $zero
+			add $a1, $s1, $zero
+            		jal getCellAddress
+            		add $s2, $v0, $zero # address of current tile
+            		
+            		# get attribute match
+            		lw $s3, 20($s2)
+            		
+            		beqz $s3, SaveZeroTile # If the match attuibute is zero            		            		
+            		
+            		addi $s7, $s5, -1 # rowIndex of the previous item
+            		
+            		bne $s7, $s5, UpdateMacthTile
+            		
+			addi $s1, $s1, 1 # rowIndex++
+            		j moveMatchrowLoop 
+				
+	endmoveMatchrowLoop:
+            addi $s0, $s0, -1
+            j moveMatchcolLoop
+            
+	SaveZeroTile:
+	    add $s4, $s1, $zero
+	    li $s6, -1
+	    
+	    add $a0, $s1 , $zero # rowindex 0
+	    add $a1, $s0 , $zero # colIndex 0
+	    add $a2, $s1 , $zero # rowIndex 1
+	    add $a3, $s0 , $zero # colIndex 1
+	    
+	    bne $s6, $s5, swapTiles
+	    
+	    addi $s1, $s1, 1 # rowIndex++
+	    j moveMatchrowLoop
+	
+	UpdateMacthTile:
+	    add $s5 ,$s1, $zero # update matched tile
+	    addi $s1, $s1, 1 # rowIndex++
+            j moveMatchrowLoop 
 
+exitmoveMatchNestLoop:
 
 	#------ Your code ends here ------
 
@@ -937,7 +999,16 @@ endMoveMatch:
 
 	#***** Task 4 *****
 	# Pop the registers that were preserved onto the stack.
-
+    lw $s7, 0($sp)
+    lw $s6, 4($sp)
+    lw $s5, 8($sp)
+    lw $s4, 12($sp)
+    lw $s3, 16($sp)
+    lw $s2, 20($sp)
+    lw $s1, 24($sp)
+    lw $s0, 28($sp)
+    lw $ra, 32($sp)
+    addi $sp, $sp, 36
 
     #******************
     jr $ra
@@ -950,7 +1021,16 @@ replaceMatch:
 
 	#***** Task 5 *****
 	# Push the registers that need to be preserved onto the stack here.
-
+	addi $sp, $sp, -36
+    	sw $ra, 32($sp)
+    	sw $s0, 28($sp)
+    	sw $s1, 24($sp)
+    	sw $s2, 20($sp)
+    	sw $s3, 16($sp)
+    	sw $s4, 12($sp)
+    	sw $s5, 8($sp)
+    	sw $s6, 4($sp)
+    	sw $s7, 0($sp)
 
 
     #******************
@@ -988,7 +1068,16 @@ endReplaceMatch:
 
 	#***** Task 5 *****
 	# Pop the registers that were preserved onto the stack.
-
+    lw $s7, 0($sp)
+    lw $s6, 4($sp)
+    lw $s5, 8($sp)
+    lw $s4, 12($sp)
+    lw $s3, 16($sp)
+    lw $s2, 20($sp)
+    lw $s1, 24($sp)
+    lw $s0, 28($sp)
+    lw $ra, 32($sp)
+    addi $sp, $sp, 36
 
 
     #******************
