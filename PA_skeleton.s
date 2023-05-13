@@ -10,12 +10,13 @@
 # For getCellAddress label, if the tile is (5,6), the rowIndex will be 5 and colIndex will be 6. That mena  $t0 is storing 5 and $t1 is storing 6.
 # After sll $t3, $t0, 3, the value of $t0 is shifted for 3 bit to the left, which means multipuly by 2^3 = 8, $t3 = 5*8 = 40
 # After add $t3, $3, $t1, $t3 = 40 + 6 = 46
-# After sll $t3, $t3, 5, the value of $t3 is shifted for 5 bit to the left, which means multipuly by 2^5 = 8, $t3 = 60*32 =1470
+# After sll $t3, $t3, 5, the value of $t3 is shifted for 5 bit to the left, which means multipuly by 2^5 = 32, $t3 = 60*32 = 1472 bits = 184 bytes
 # It means the diffence between between the base address of the tile (5, 6) and the base address of grid is equal to $ t3 - base adress of grid, which is 1470 #TODO.
 
 
 # Question 2:
-# The value held in register $s0 is 8 - 6 = 2, and the value held in register $s1 is -8 + 5 = -3.
+# According to fig.3, at tile (5, 6) will approach left boarder of the grid. Then it will finally reach (5, 4). 
+# Knowing that $s0 and $s1 are representing the register of the tile, the value of $s1 is 5 and $s0 is 4.
 
 #--------------------------------------------------------------------
 
