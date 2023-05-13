@@ -961,58 +961,83 @@ moveMatch:
     # unmatched tile above it identified in step 3.
     #   - Read the source codes of "swapTiles" to understand how to use it.
 	#------ Your code starts here ------
-	li $s0, 7 # colIndex
-	lw $s3, tileSize
+
+    # $s0: colIndex
+    # $s1: rowIndex
+    # $s2: address of current tile
+    # $s3: match attribute of current tile
+    # $s4: index of bottom-most unmatched tile
+    # $s5: search index
+    # $s6: const -1
+    # $s7:
+
+	li $s0, 0 # colIndex
+    li $s6, -1 # const -1
 	moveMatchcolLoop: 
-		li $t0, -1
-		li $s1, 7 # rowIndex
-		beq $s0, $t0, exitmoveMatchNestLoop # if rowIndex is 8, end loop
-		li $s4, -1 # init the bottom-most unmateched tile
-		li $s5, -1 # init the matched tile
-			
+		li $t0, 8
+		beq $s0, $t0, exitmoveMatchNestLoop # if colIndex is 8, end loop
+		
+        li $s1, 7 # rowIndex
+        
 		moveMatchrowLoop:
-			li $t0, 7
-			beq $s1, $t0, endmoveMatchrowLoop
+			li $t0, -1
+            li $s4, -1 # init the bottom-most unmateched tile index
+			beq $s1, $t0, endmoveMatchrowLoop # if lineIndex is -1, end loop
 			
-			add $a0, $s1, $zero
-			add $a1, $s0, $zero
-            		jal getCellAddress
-            		add $s2, $v0, $zero # address of current tile
-            		
-            		# get attribute match
-            		lw $s3, 20($s2)
-            		
-            		beqz $s3, SaveZeroTile # If the match attuibute is zero            		            		
-            		
-            		addi $s7, $s5, -1 # rowIndex of the previous item
-            		
-            		bne $s7, $s5, UpdateMacthTile
-            		
-			addi $s1, $s1, 1 # rowIndex++
-            		j moveMatchrowLoop 
+            # get Cell Address
+            add $a0, $s1, $zero # rowIndex
+            add $a1, $s0, $zero # colIndex
+            jal getCellAddress
+            add $s2, $v0, $zero # address of current tile
+        
+            # get cell attibute match 
+            lw $s3, 20($s2) # grid[i][j].match
+            
+            addi $s5, $s1, -1 # search index = rowIndex - 1
+            bnez $s3, FindBottomUP # If the match attuibute is not zero, find a bottom-most unmatched tile above it            		            		
+	    
+            addi $s1, $s1, -1 # rowIndex--
+            j moveMatchrowLoop 
+
+        FindBottomUP:
+            beq $s6, $s5, endFindBottomUP # if there is no matched tile so far, skip
+
+            # get Cell Address
+            add $a0, $s5, $zero # rowIndex
+            add $a1, $s0, $zero # colIndex
+            jal getCellAddress
+            add $s2, $v0, $zero # address of current tile
+        
+            # get cell attibute match 
+            lw $s3, 20($s2) # grid[i][j].match
+
+            bnez $s3, FindBottomUPContinue # if the match attuibute is not zero, skip
+
+            # swapTiles inputs
+            add $a0, $s5 , $zero # rowindex 0
+            add $a1, $s0 , $zero # colIndex 0
+            add $a2, $s1 , $zero # rowIndex 1
+            add $a3, $s0, $zero # colIndex 1
+	        jal swapTiles
+                
+            # update bottom-most unmateched tile index
+            addi $s1, $s1, 1 # index of bottom-most unmatched tile
+            j endFindBottomUP
+
+        FindBottomUPContinue:
+
+            addi $s5, $s5, -1 # search index--
+            j FindBottomUP # search bottom-most unmateched tile
+            
+        endFindBottomUP:
+            addi $s1, $s1, -1 # rowIndex--
+            j moveMatchrowLoop
+        
 				
 	endmoveMatchrowLoop:
-            addi $s0, $s0, -1
+            addi $s0, $s0, 1 # colIndex++
             j moveMatchcolLoop
             
-	SaveZeroTile:
-	    add $s4, $s1, $zero
-	    li $s6, -1
-	    
-	    add $a0, $s1 , $zero # rowindex 0
-	    add $a1, $s0 , $zero # colIndex 0
-	    add $a2, $s1 , $zero # rowIndex 1
-	    add $a3, $s4 , $zero # colIndex 1
-	    
-	    bne $s6, $s5, swapTiles
-	    
-	    addi $s1, $s1, 1 # rowIndex++
-	    j moveMatchrowLoop
-	
-	UpdateMacthTile:
-	    add $s5 ,$s1, $zero # update matched tile
-	    addi $s1, $s1, 1 # rowIndex++
-            j moveMatchrowLoop 
 
 exitmoveMatchNestLoop:
 
@@ -1083,7 +1108,7 @@ replaceMatch:
 	# assign the random value to the "kind" attribute of the tile.
 	#
 	#------ Your code starts here ------
-    li $s0, 0 # colIndex
+	li $s0, 0 # colIndex
     lw $s4, tileSize # get the tileSize
     li $s7, -1
     mult $s4, $s7 
@@ -1094,43 +1119,49 @@ replaceMatch:
         beq $s0, $t0, endReplaceMatch
 
         li $s1, 7 # rowIndex
-	li $s3, 1 # num_of_matches (of each column)
+	    li $s3, 1 # num_of_matches (of each column)
 	
         rowreplaceMatch:
             li $t0, -1 # from buttom-to-top
             beq $s1, $t0, endRowreplaceMatch
 
+            # get cell address
             add $a0, $s1, $zero
             add $a1, $s0, $zero
             jal getCellAddress
             add $s2, $v0, $zero # address of current tile
             
             lw $s7, 20($s2) # grid[i][j].match
-            beq $s7, $zero, rowreplaceMatchContinue # if it is not match (match == 0), continue
+            beqz $s7, rowreplaceMatchContinue # if it is not match (match == 0), continue
 
-	    lw $s5, 4($s2) # grid[i][j].y
-	
-	    mult $s5, $s3 # y * num_of_matches
-	    mflo $s5
+            lw $s5, 4($s2) # grid[i][j].y
+        
+            mult $s4, $s3 # -tileSize * num_of_matches
+            mflo $s5
             
-            mult $s5, $s4 # -tileSize * y * num_of_matches
-	    mflo $s5
-	    
-	    sw $s5, 20($s2) # save grid[i][j].y
-	    
-	    addi $s3, $s3, 1 # num_of_matches++
-	    
-	    li $s6, 0
-	    sw $s6, 20($s2) # grid[i][j].match to 0
+            # mult $s5, $s4 # -tileSize * num_of_matches
+            # mflo $s5
+            
+            sw $s5, 4($s2) # save grid[i][j].y
+            
+            addi $s3, $s3, 1 # num_of_matches++
+
+            lw $s6, score # load score
+            add $s6, $s6, $s7 # score + grid[i][j].match
+            sw $s6, score # save score
+            
+            li $s6, 0
+            sw $s6, 20($s2) # grid[i][j].match to 0
             sw $s6, 24($s2) # grid[i][j].hscore to 0
             sw $s6, 28($s2) # grid[i][j].vscore to 0
-            
-	    #  generate a random number between 0 and 5
-	    li $a1, 6
-	    li $v0, 42
-	    syscall
-	    sw $a0, 16($s2)
-            
+                
+            #  generate a random number between 0 and 5
+            li $a1, 6
+            li $v0, 42
+            syscall
+            sw $a0, 16($s2)
+                
+            addi $s1, $s1, -1
             j rowreplaceMatch
 
         rowreplaceMatchContinue:
@@ -1140,7 +1171,6 @@ replaceMatch:
         endRowreplaceMatch:
             addi $s0, $s0, 1
             j colreplaceMatch
-
 	#------ Your code ends here ------
 
 endReplaceMatch:
