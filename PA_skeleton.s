@@ -609,7 +609,6 @@ checkVerticalMatch:
   
         
 endCheckVerticalMatch:
-
     lw $s7, 0($sp)
     lw $s6, 4($sp)
     lw $s5, 8($sp)
@@ -665,6 +664,7 @@ updateMatch:
     sw $s6, matchFound
 
     li $s0, 0 # rowIndex
+    
     matchrowLoop: 
         li $t0, 8
         beq $s0, $t0, exitMatchNestLoop # if rowIndex is 8, end loop
@@ -689,34 +689,51 @@ updateMatch:
             add $s4, $s4, $s3
             sw $s4, 20($s2)
             
-            SetmatchFound:
             # set matchFound to true if match > 0
-            li $s6, 1
-            bgtz $s4, SetmatchFoundEnd
+            bgtz $s4, SetmatchFound
             
             addi $s1, $s1, 1
             j matchcolLoop 
 
         endmatchcolLoop:
-        addi $s0, $s0, 1
-        j matchrowLoop
+            addi $s0, $s0, 1
+            j matchrowLoop
             
-    SetmatchFoundEnd:
-    # assign match value to matchFound address 
-    sw $s6, matchFound
+    SetmatchFound:
+        # assign match value to matchFound address 
+        li $s6, 1
+        sw $s6, matchFound
+        addi $s1, $s1, 1
+        j matchcolLoop
 
     exitMatchNestLoop:
-    lw $s7, 0($sp)
-    lw $s6, 4($sp)
-    lw $s5, 8($sp)
-    lw $s4, 12($sp)
-    lw $s3, 16($sp)
-    lw $s2, 20($sp)
-    lw $s1, 24($sp)
-    lw $s0, 28($sp)
-    lw $ra, 32($sp)
-    addi $sp, $sp, 36
-	#------ Your code ends here ------
+        #  la $a0, grid
+        #  li $a1, 5
+        #  li $v0, 207
+        #  syscall
+        
+        #  la $a0, grid
+        #  li $a1, 6
+        #  li $v0, 207
+        #  syscall
+
+        #  la $a0, grid
+        #  li $a1, 7
+        #  li $v0, 207
+        #  syscall
+
+        lw $s7, 0($sp)
+        lw $s6, 4($sp)
+        lw $s5, 8($sp)
+        lw $s4, 12($sp)
+        lw $s3, 16($sp)
+        lw $s2, 20($sp)
+        lw $s1, 24($sp)
+        lw $s0, 28($sp)
+        lw $ra, 32($sp)
+        addi $sp, $sp, 36
+    
+    #------ Your code ends here ------
     jr $ra
 
 
@@ -1066,31 +1083,30 @@ replaceMatch:
 	# assign the random value to the "kind" attribute of the tile.
 	#
 	#------ Your code starts here ------
-
     li $s0, 0 # colIndex
     lw $s4, tileSize # get the tileSize
     li $s7, -1
     mult $s4, $s7 
     mflo $s4
     
-    colreplaceMatchVertical:
+    colreplaceMatch:
         li $t0, 8
-        beq $s0, $t0, endRowreplaceMatchVertical
+        beq $s0, $t0, endReplaceMatch
 
-        li $s1, 0 # rowIndex
+        li $s1, 7 # rowIndex
 	li $s3, 1 # num_of_matches (of each column)
 	
-        rowreplaceMatchVertical:
+        rowreplaceMatch:
             li $t0, -1 # from buttom-to-top
-            beq $s1, $t0, endRowreplaceMatchVertical
+            beq $s1, $t0, endRowreplaceMatch
 
-            add $a0, $s0, $zero
-            add $a1, $s1, $zero
+            add $a0, $s1, $zero
+            add $a1, $s0, $zero
             jal getCellAddress
             add $s2, $v0, $zero # address of current tile
             
             lw $s7, 20($s2) # grid[i][j].match
-            beq $s7, $zero, rowreplaceMatchVerticalContinue # if it is not match (match == 0), continue
+            beq $s7, $zero, rowreplaceMatchContinue # if it is not match (match == 0), continue
 
 	    lw $s5, 4($s2) # grid[i][j].y
 	
@@ -1115,15 +1131,15 @@ replaceMatch:
 	    syscall
 	    sw $a0, 16($s2)
             
-            j rowreplaceMatchVertical
+            j rowreplaceMatch
 
-        rowreplaceMatchVerticalContinue:
-            addi $s1, $s1, 1
-            j rowreplaceMatchVertical
+        rowreplaceMatchContinue:
+            addi $s1, $s1, -1
+            j rowreplaceMatch
 
-        endRowreplaceMatchVertical:
+        endRowreplaceMatch:
             addi $s0, $s0, 1
-            j colreplaceMatchVertical
+            j colreplaceMatch
 
 	#------ Your code ends here ------
 
