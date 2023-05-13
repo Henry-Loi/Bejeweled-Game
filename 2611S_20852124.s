@@ -3,17 +3,20 @@
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # write down your info and the answers for TASK 0 as COMMENTS here
 # name:
-# student ID:
-# email:
+# student ID: LOI Hong Ching Henry
+# email: hchloi@connect.ust.hk
 # TASK 0:
 # Question 1:
-
+# For getCellAddress label, if the tile is (5,6), the rowIndex will be 5 and colIndex will be 6. That mena  $t0 is storing 5 and $t1 is storing 6.
+# After sll $t3, $t0, 3, the value of $t0 is shifted for 3 bit to the left, which means multipuly by 2^3 = 8, $t3 = 5*8 = 40
+# After add $t3, $3, $t1, $t3 = 40 + 6 = 46
+# After sll $t3, $t3, 5, the value of $t3 is shifted for 5 bit to the left, which means multipuly by 2^5 = 32, $t3 = 60*32 = 1472 bits = 184 bytes
+# It means the diffence between between the base address of the tile (5, 6) and the base address of grid is equal to $ t3 - base adress of grid, which is 1470 #TODO.
 
 
 # Question 2:
-
-
-
+# According to fig.3, at tile (5, 6) will approach left boarder of the grid. Then it will finally reach (5, 4). 
+# Knowing that $s0 and $s1 are representing the register of the tile, the value of $s1 is 5 and $s0 is 4.
 
 #--------------------------------------------------------------------
 
@@ -78,16 +81,65 @@ initializeGrid:
     #         2 - 5. for attribute kind, assign a random number ranged from 0 to 5 (inclusive) to it, use syscall 42
     #         2 - 6. remove the skeleton code as indicated below.
 	#------ Your code starts here ------
-
+	# s0 rowIndex
+	# s1 colIndex
+	# s2 grid adress
+	# s3 tileSize
+	
+	li $s0, 0 # rowIndex
+	lw $s3, tileSize
+	initrowLoop: 
+		li $t0, 8
+		li $s1, 0 # colIndex
+		beq $s0, $t0, exitInitNestLoop # if rowIndex is 8, end loop
+			
+		initcolLoop:
+			li $t0, 8
+			beq $s1, $t0, endinitcolLoop
+			
+			add $a0, $s0, $zero
+			add $a1, $s1, $zero
+            		jal getCellAddress
+            		add $s2, $v0, $zero # address of current tile
+            		
+            		# attribute x,  tile's colIndex * tileSiz
+            		mult $s3, $s1
+			mflo $s4
+            		sw $s4, 0($s2)
+            		
+            		# attribute y,  tile's rowIndex * tileSiz
+            		mult $s3, $s0
+			mflo $s5
+            		sw $s5, 4($s2)
+            		
+            		# attribute row
+            		sw $s0, 8($s2)
+            		
+			# attribute col
+			sw $s1, 12($s2)
+			
+			# attribute kind
+			li $a1, 6
+			li $v0, 42
+			syscall
+			sw $a0, 16($s2)
+			
+			addi $s1, $s1, 1
+            		j initcolLoop 
+				
+	endinitcolLoop:
+            addi $s0, $s0, 1
+            j initrowLoop
+exitInitNestLoop:
 
 	#------ Your code ends here ------
 
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # Remove the following code after you finish task 1, this loads a pre-defined grid for testing.
     # If you cannot finish task 1, leave it so that your later tasks can be tested, but you will not get the mark for task 1
-    la $a0, grid
-    li $v0, 208
-    syscall
+    # la $a0, grid
+    # li $v0, 208
+    # syscall
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 li $v0, 200
@@ -162,7 +214,7 @@ mainGameLoop:
     li $v0, 32
     syscall
 
-	la $t0, isMoving
+    la $t0, isMoving
     lw $t0, 0($t0)
     li $t1, 1
     beq $t0, $t1, skipConditionCheck
@@ -466,8 +518,108 @@ checkVerticalMatch:
 	#		 then set the vscore attribute of all tiles in this matched pattern to the length of the matched pattern.
 	# step 6: If a tile has its vscore attribute already been set (not equal to 0), then skip updating it. 
 	#------ Your code starts here ------
+    addi $sp, $sp, -36
+    sw $ra, 32($sp)
+    sw $s0, 28($sp)
+    sw $s1, 24($sp)
+    sw $s2, 20($sp)
+    sw $s3, 16($sp)
+    sw $s4, 12($sp)
+    sw $s5, 8($sp)
+    sw $s6, 4($sp)
+    sw $s7, 0($sp)
+
+   li $s0, 0 # colIndex
+
+    colLoopMatchVertical:
+        li $t0, 8
+        beq $s0, $t0, endCheckVerticalMatch
+
+        li $s1, 0 # rowIndex
+
+        rowLoopMatchVertical:
+            li $t0, 8
+            beq $s1, $t0, endRowLoopMatchVertical
+
+            add $a0, $s1, $zero
+            add $a1, $s0, $zero
+            jal getCellAddress
+            add $s2, $v0, $zero # address of current tile
+
+            lw $t0, 28($s2) # grid[i][j].vscore
+            bne $t0, $zero, rowLoopMatchVerticalContinue
+
+            add $s3, $s1, $zero # upborder of matched pattern
+            add $s4, $s1, $zero # downborder of matched pattern
+            lw $s5, 16($s2) # grid[i][j].kind
+
+            expandUpBorder:
+                bltz $s3, expandDownBorder
+                add $a0, $s3, $zero
+                add $a1, $s0, $zero	
+                jal getCellAddress
+                add $t0, $v0, $zero # address of up border tile
+                lw $t1, 16($t0) # grid[i][upborder].kind
+                bne $t1, $s5, expandDownBorder
+
+                addi $s3, $s3, -1
+                j expandUpBorder
+
+            expandDownBorder:
+                add $t0, $s4, $zero
+                addi $t0, $t0, -8
+                bgez $t0, endExpandDownBorder
+                add $a0, $s4, $zero
+                add $a1, $s0, $zero
+                jal getCellAddress
+                add $t0, $v0, $zero # address of down border tile
+                lw $t1, 16($t0) # grid[i][downborder].kind
+                bne $t1, $s5, endExpandDownBorder
+
+                addi $s4, $s4, 1
+                j expandDownBorder
+
+            endExpandDownBorder:
+                sub $s6, $s4, $s3 # patternLength
+                addi $s6, $s6, -1
+                addi $t0, $s6, -3
+                bltz $t0, rowLoopMatchVerticalContinue
+
+            addi $s7, $s3, 1
+            updateVScore:
+                sub $t0, $s7, $s4
+                bgez $t0, rowLoopMatchVerticalContinue
+
+                add $a0, $s7, $zero
+                add $a1, $s0, $zero
+                jal getCellAddress
+                add $t1, $v0, $zero # address of tile to be updated
+                sw $s6, 28($t1) #grid[i][j].vscore
+
+                addi $s7, $s7, 1
+                j updateVScore
 
 
+        rowLoopMatchVerticalContinue:
+            addi $s1, $s1, 1
+            j rowLoopMatchVertical
+
+        endRowLoopMatchVertical:
+            addi $s0, $s0, 1
+            j colLoopMatchVertical
+  
+        
+endCheckVerticalMatch:
+    lw $s7, 0($sp)
+    lw $s6, 4($sp)
+    lw $s5, 8($sp)
+    lw $s4, 12($sp)
+    lw $s3, 16($sp)
+    lw $s2, 20($sp)
+    lw $s1, 24($sp)
+    lw $s0, 28($sp)
+    lw $ra, 32($sp)
+    addi $sp, $sp, 36
 	#------ Your code ends here ------
     jr $ra
 
@@ -481,7 +633,7 @@ updateMatch:
 	#***** Task 3 *****
 	# Update the match attribute of each tile in the grid, and set the value of matchFound variable accordingly.
 	# Note that "matchFound" is a global variable indicating whether at least one matched pattern exists in the 
-    # current game loop. This variable is used in procedure "revertSwap".
+    	# current game loop. This variable is used in procedure "revertSwap".
 	#
 	# hint: 
 	# step 1: Assign the value of matchFound variable to 0(false).
@@ -489,9 +641,100 @@ updateMatch:
 	# step 3: For each tile, set its match attribute to the sum of its hscore and vscore attributes.
 	# step 4: If the match attribute of any tile is greater than 0, then set the value of matchFound variable to 1(true).
 	#------ Your code starts here ------
+	# $s0: rowIndex
+	# $s1: colIndex
+	# $s2: tile base adress
+	# $s3: tile hscore
+	# $s4: tile vscore
+	# $s5: matchFound adress
+	# $s6: matchFound value
+	
+    addi $sp, $sp, -36
+    sw $ra, 32($sp)
+    sw $s0, 28($sp)
+    sw $s1, 24($sp)
+    sw $s2, 20($sp)
+    sw $s3, 16($sp)
+    sw $s4, 12($sp)
+    sw $s5, 8($sp)
+    sw $s6, 4($sp)
+    sw $s7, 0($sp)
 
+    # init matchFound to false 
+    li $s6, 0
+    sw $s6, matchFound
 
-	#------ Your code ends here ------
+    li $s0, 0 # rowIndex
+    
+    matchrowLoop: 
+        li $t0, 8
+        beq $s0, $t0, exitMatchNestLoop # if rowIndex is 8, end loop
+            
+        li $s1, 0 # colIndex
+        matchcolLoop:
+            li $t0, 8
+            beq $s1, $t0, endmatchcolLoop
+            
+            add $a0, $s0, $zero
+            add $a1, $s1, $zero
+            jal getCellAddress
+            add $s2, $v0, $zero # address of current tile
+                                
+            # attribute hscore
+            lw $s3, 24($s2)
+            
+            # attribute vscore
+            lw $s4, 28($s2)
+            
+            # match = hscore + vscore
+            add $s4, $s4, $s3
+            sw $s4, 20($s2)
+            
+            # set matchFound to true if match > 0
+            bgtz $s4, SetmatchFound
+            
+            addi $s1, $s1, 1
+            j matchcolLoop 
+
+        endmatchcolLoop:
+            addi $s0, $s0, 1
+            j matchrowLoop
+            
+    SetmatchFound:
+        # assign match value to matchFound address 
+        li $s6, 1
+        sw $s6, matchFound
+        addi $s1, $s1, 1
+        j matchcolLoop
+
+    exitMatchNestLoop:
+        #  la $a0, grid
+        #  li $a1, 5
+        #  li $v0, 207
+        #  syscall
+        
+        #  la $a0, grid
+        #  li $a1, 6
+        #  li $v0, 207
+        #  syscall
+
+        #  la $a0, grid
+        #  li $a1, 7
+        #  li $v0, 207
+        #  syscall
+
+        lw $s7, 0($sp)
+        lw $s6, 4($sp)
+        lw $s5, 8($sp)
+        lw $s4, 12($sp)
+        lw $s3, 16($sp)
+        lw $s2, 20($sp)
+        lw $s1, 24($sp)
+        lw $s0, 28($sp)
+        lw $ra, 32($sp)
+        addi $sp, $sp, 36
+    
+    #------ Your code ends here ------
     jr $ra
 
 
@@ -680,15 +923,23 @@ moveMatch:
 
 	#***** Task 4 *****
 	# Push the registers that need to be preserved onto the stack here.
-
-
+    addi $sp, $sp, -36
+    sw $ra, 32($sp)
+    sw $s0, 28($sp)
+    sw $s1, 24($sp)
+    sw $s2, 20($sp)
+    sw $s4, 16($sp)
+    sw $s5, 12($sp)
+    sw $s6, 8($sp)
+    sw $s7, 4($sp)
+    sw $s3, 0($sp)
 
     #******************
 
 	# The following 4 lines of code are for animations, and they are not part of the Task 4 logic.
     # You can ignore the following piece of code, but remember DO NOT modify it.
     # DO NOT modify the "endMoveMatch" label at the end of this procedure.
-	la $t0, isMoving
+    la $t0, isMoving
     lw $t0, 0($t0)
     li $t1, 1
     beq $t0, $t1, endMoveMatch
@@ -712,6 +963,84 @@ moveMatch:
     #   - Read the source codes of "swapTiles" to understand how to use it.
 	#------ Your code starts here ------
 
+    # $s0: colIndex
+    # $s1: rowIndex
+    # $s2: address of current tile
+    # $s3: match attribute of current tile
+    # $s4: index of bottom-most unmatched tile
+    # $s5: search index
+    # $s6: const -1
+    # $s7:
+
+	li $s0, 0 # colIndex
+    li $s6, -1 # const -1
+	moveMatchcolLoop: 
+		li $t0, 8
+		beq $s0, $t0, exitmoveMatchNestLoop # if colIndex is 8, end loop
+		
+        li $s1, 7 # rowIndex
+        
+		moveMatchrowLoop:
+			li $t0, -1
+            li $s4, -1 # init the bottom-most unmateched tile index
+			beq $s1, $t0, endmoveMatchrowLoop # if lineIndex is -1, end loop
+			
+            # get Cell Address
+            add $a0, $s1, $zero # rowIndex
+            add $a1, $s0, $zero # colIndex
+            jal getCellAddress
+            add $s2, $v0, $zero # address of current tile
+        
+            # get cell attibute match 
+            lw $s3, 20($s2) # grid[i][j].match
+            
+            addi $s5, $s1, -1 # search index = rowIndex - 1
+            bnez $s3, FindBottomUP # If the match attuibute is not zero, find a bottom-most unmatched tile above it            		            		
+	    
+            addi $s1, $s1, -1 # rowIndex--
+            j moveMatchrowLoop 
+
+        FindBottomUP:
+            beq $s6, $s5, endFindBottomUP # if there is no matched tile so far, skip
+
+            # get Cell Address
+            add $a0, $s5, $zero # rowIndex
+            add $a1, $s0, $zero # colIndex
+            jal getCellAddress
+            add $s2, $v0, $zero # address of current tile
+        
+            # get cell attibute match 
+            lw $s3, 20($s2) # grid[i][j].match
+
+            bnez $s3, FindBottomUPContinue # if the match attuibute is not zero, skip
+
+            # swapTiles inputs
+            add $a0, $s5 , $zero # rowindex 0
+            add $a1, $s0 , $zero # colIndex 0
+            add $a2, $s1 , $zero # rowIndex 1
+            add $a3, $s0, $zero # colIndex 1
+	        jal swapTiles
+                
+            # update bottom-most unmateched tile index
+            addi $s1, $s1, 1 # index of bottom-most unmatched tile
+            j endFindBottomUP
+
+        FindBottomUPContinue:
+
+            addi $s5, $s5, -1 # search index--
+            j FindBottomUP # search bottom-most unmateched tile
+            
+        endFindBottomUP:
+            addi $s1, $s1, -1 # rowIndex--
+            j moveMatchrowLoop
+        
+				
+	endmoveMatchrowLoop:
+            addi $s0, $s0, 1 # colIndex++
+            j moveMatchcolLoop
+            
+
+exitmoveMatchNestLoop:
 
 	#------ Your code ends here ------
 
@@ -719,7 +1048,16 @@ endMoveMatch:
 
 	#***** Task 4 *****
 	# Pop the registers that were preserved onto the stack.
-
+    lw $s3, 0($sp)
+    lw $s7, 4($sp)
+    lw $s6, 8($sp)
+    lw $s5, 12($sp)
+    lw $s4, 16($sp)
+    lw $s2, 20($sp)
+    lw $s1, 24($sp)
+    lw $s0, 28($sp)
+    lw $ra, 32($sp)
+    addi $sp, $sp, 36
 
     #******************
     jr $ra
@@ -732,7 +1070,16 @@ replaceMatch:
 
 	#***** Task 5 *****
 	# Push the registers that need to be preserved onto the stack here.
-
+	addi $sp, $sp, -36
+    	sw $ra, 32($sp)
+    	sw $s0, 28($sp)
+    	sw $s1, 24($sp)
+    	sw $s2, 20($sp)
+    	sw $s3, 16($sp)
+    	sw $s4, 12($sp)
+    	sw $s5, 8($sp)
+    	sw $s6, 4($sp)
+    	sw $s7, 0($sp)
 
 
     #******************
@@ -762,15 +1109,85 @@ replaceMatch:
 	# assign the random value to the "kind" attribute of the tile.
 	#
 	#------ Your code starts here ------
+	li $s0, 0 # colIndex
+    lw $s4, tileSize # get the tileSize
+    li $s7, -1
+    mult $s4, $s7 
+    mflo $s4
+    
+    colreplaceMatch:
+        li $t0, 8
+        beq $s0, $t0, endReplaceMatch
 
+        li $s1, 7 # rowIndex
+	    li $s3, 1 # num_of_matches (of each column)
+	
+        rowreplaceMatch:
+            li $t0, -1 # from buttom-to-top
+            beq $s1, $t0, endRowreplaceMatch
 
+            # get cell address
+            add $a0, $s1, $zero
+            add $a1, $s0, $zero
+            jal getCellAddress
+            add $s2, $v0, $zero # address of current tile
+            
+            lw $s7, 20($s2) # grid[i][j].match
+            beqz $s7, rowreplaceMatchContinue # if it is not match (match == 0), continue
+
+            lw $s5, 4($s2) # grid[i][j].y
+        
+            mult $s4, $s3 # -tileSize * num_of_matches
+            mflo $s5
+            
+            # mult $s5, $s4 # -tileSize * num_of_matches
+            # mflo $s5
+            
+            sw $s5, 4($s2) # save grid[i][j].y
+            
+            addi $s3, $s3, 1 # num_of_matches++
+
+            lw $s6, score # load score
+            add $s6, $s6, $s7 # score + grid[i][j].match
+            sw $s6, score # save score
+            
+            li $s6, 0
+            sw $s6, 20($s2) # grid[i][j].match to 0
+            sw $s6, 24($s2) # grid[i][j].hscore to 0
+            sw $s6, 28($s2) # grid[i][j].vscore to 0
+                
+            #  generate a random number between 0 and 5
+            li $a1, 6
+            li $v0, 42
+            syscall
+            sw $a0, 16($s2)
+                
+            addi $s1, $s1, -1
+            j rowreplaceMatch
+
+        rowreplaceMatchContinue:
+            addi $s1, $s1, -1
+            j rowreplaceMatch
+
+        endRowreplaceMatch:
+            addi $s0, $s0, 1
+            j colreplaceMatch
 	#------ Your code ends here ------
 
 endReplaceMatch:
 
 	#***** Task 5 *****
 	# Pop the registers that were preserved onto the stack.
-
+    lw $s7, 0($sp)
+    lw $s6, 4($sp)
+    lw $s5, 8($sp)
+    lw $s4, 12($sp)
+    lw $s3, 16($sp)
+    lw $s2, 20($sp)
+    lw $s1, 24($sp)
+    lw $s0, 28($sp)
+    lw $ra, 32($sp)
+    addi $sp, $sp, 36
 
 
     #******************
